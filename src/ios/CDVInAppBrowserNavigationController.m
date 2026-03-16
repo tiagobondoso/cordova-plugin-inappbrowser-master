@@ -18,6 +18,7 @@
  */
 
 #import "CDVInAppBrowserNavigationController.h"
+#import <objc/runtime.h>
 
 #define    STATUSBAR_HEIGHT 20.0
 
@@ -29,9 +30,46 @@
     }
 }
 
+- (UIWindowScene *)currentWindowScene
+{
+    if (@available(iOS 13.0, *)) {
+        return self.view.window.windowScene ?: UIApplication.sharedApplication.connectedScenes.anyObject;
+    }
+    return nil;
+}
+
+- (CGRect)statusBarFrame
+{
+    if (@available(iOS 13.0, *)) {
+        UIWindowScene *scene = [self currentWindowScene];
+        if (scene.statusBarManager != nil) {
+            return scene.statusBarManager.statusBarFrame;
+        }
+    }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    return [UIApplication sharedApplication].statusBarFrame;
+#pragma clang diagnostic pop
+}
+
+- (UIInterfaceOrientation)currentInterfaceOrientation
+{
+    if (@available(iOS 13.0, *)) {
+        UIWindowScene *scene = [self currentWindowScene];
+        UIInterfaceOrientation orientation = scene.interfaceOrientation;
+        if (orientation != UIInterfaceOrientationUnknown) {
+            return orientation;
+        }
+    }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    return [UIApplication sharedApplication].statusBarOrientation;
+#pragma clang diagnostic pop
+}
+
 - (void) viewDidLoad {
 
-    CGRect statusBarFrame = [self invertFrameIfNeeded:[UIApplication sharedApplication].statusBarFrame];
+    CGRect statusBarFrame = [self invertFrameIfNeeded:[self statusBarFrame]];
     statusBarFrame.size.height = STATUSBAR_HEIGHT;
     // simplified from: http://stackoverflow.com/a/25669695/219684
 
@@ -44,7 +82,7 @@
 }
 
 - (CGRect) invertFrameIfNeeded:(CGRect)rect {
-    if (UIInterfaceOrientationIsLandscape([[UIApplication sharedApplication] statusBarOrientation])) {
+    if (UIInterfaceOrientationIsLandscape([self currentInterfaceOrientation])) {
         CGFloat temp = rect.size.width;
         rect.size.width = rect.size.height;
         rect.size.height = temp;
