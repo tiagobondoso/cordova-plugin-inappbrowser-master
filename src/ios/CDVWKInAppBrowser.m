@@ -218,7 +218,12 @@ static CDVWKInAppBrowser* instance = nil;
         if(appendUserAgent){
             userAgent = [userAgent stringByAppendingString: appendUserAgent];
         }
-        self.inAppBrowserViewController = [[CDVWKInAppBrowserViewController alloc] initWithUserAgent:userAgent prevUserAgent:[self.commandDelegate userAgent] browserOptions: browserOptions];
+        NSString* previousUserAgent = [CDVUserAgentUtil originalUserAgent];
+        id commandDelegate = self.commandDelegate;
+        if ([commandDelegate respondsToSelector:@selector(userAgent)]) {
+            previousUserAgent = [commandDelegate userAgent];
+        }
+        self.inAppBrowserViewController = [[CDVWKInAppBrowserViewController alloc] initWithUserAgent:userAgent prevUserAgent:previousUserAgent browserOptions: browserOptions];
         self.inAppBrowserViewController.navigationDelegate = self;
         
         if ([self.viewController conformsToProtocol:@protocol(CDVScreenOrientationDelegate)]) {
@@ -1274,15 +1279,5 @@ BOOL isExiting = FALSE;
     
     return 1 << UIInterfaceOrientationPortrait;
 }
-
-- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation
-{
-    if ((self.orientationDelegate != nil) && [self.orientationDelegate respondsToSelector:@selector(shouldAutorotateToInterfaceOrientation:)]) {
-        return [self.orientationDelegate shouldAutorotateToInterfaceOrientation:interfaceOrientation];
-    }
-    
-    return YES;
-}
-
 
 @end //CDVWKInAppBrowserViewController
