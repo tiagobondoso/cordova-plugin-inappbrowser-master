@@ -63,19 +63,24 @@
     return YES;
 }
 
-- (NSUInteger)supportedInterfaceOrientations
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations
 {
     if ((self.orientationDelegate != nil) && [self.orientationDelegate respondsToSelector:@selector(supportedInterfaceOrientations)]) {
         return [self.orientationDelegate supportedInterfaceOrientations];
     }
 
-    return 1 << UIInterfaceOrientationPortrait;
+    return UIInterfaceOrientationMaskPortrait;
 }
 
 - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation
 {
-    if ((self.orientationDelegate != nil) && [self.orientationDelegate respondsToSelector:@selector(shouldAutorotateToInterfaceOrientation:)]) {
-        return [self.orientationDelegate shouldAutorotateToInterfaceOrientation:interfaceOrientation];
+    SEL legacySelector = @selector(shouldAutorotateToInterfaceOrientation:);
+
+    if ((self.orientationDelegate != nil) && [self.orientationDelegate respondsToSelector:legacySelector]) {
+        BOOL (*legacyMethod)(id, SEL, UIInterfaceOrientation) = (BOOL (*)(id, SEL, UIInterfaceOrientation))[self.orientationDelegate methodForSelector:legacySelector];
+        if (legacyMethod != NULL) {
+            return legacyMethod(self.orientationDelegate, legacySelector, interfaceOrientation);
+        }
     }
 
     return YES;
