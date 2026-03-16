@@ -33,7 +33,16 @@
 - (UIWindowScene *)currentWindowScene
 {
     if (@available(iOS 13.0, *)) {
-        return self.view.window.windowScene ?: UIApplication.sharedApplication.connectedScenes.anyObject;
+        UIWindowScene *windowScene = self.view.window.windowScene;
+        if (windowScene != nil) {
+            return windowScene;
+        }
+
+        for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+            if ([scene isKindOfClass:[UIWindowScene class]]) {
+                return (UIWindowScene *)scene;
+            }
+        }
     }
     return nil;
 }
@@ -114,10 +123,12 @@
 {
     SEL legacySelector = @selector(shouldAutorotateToInterfaceOrientation:);
 
-    if ((self.orientationDelegate != nil) && [self.orientationDelegate respondsToSelector:legacySelector]) {
-        BOOL (*legacyMethod)(id, SEL, UIInterfaceOrientation) = (BOOL (*)(id, SEL, UIInterfaceOrientation))[self.orientationDelegate methodForSelector:legacySelector];
-        if (legacyMethod != NULL) {
-            return legacyMethod(self.orientationDelegate, legacySelector, interfaceOrientation);
+    id target = self.orientationDelegate;
+    if ((target != nil) && [target respondsToSelector:legacySelector]) {
+        IMP implementation = [target methodForSelector:legacySelector];
+        if (implementation != NULL) {
+            BOOL (*legacyMethod)(id, SEL, UIInterfaceOrientation) = (BOOL (*)(id, SEL, UIInterfaceOrientation))implementation;
+            return legacyMethod(target, legacySelector, interfaceOrientation);
         }
     }
 
