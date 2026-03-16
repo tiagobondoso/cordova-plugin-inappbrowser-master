@@ -25,6 +25,7 @@
 
 #import <Cordova/CDVPluginResult.h>
 #import "CDVUserAgentUtilCompat.h"
+#import <objc/runtime.h>
 
 #define    kInAppBrowserTargetSelf @"_self"
 #define    kInAppBrowserTargetSystem @"_system"
@@ -220,8 +221,13 @@ static CDVWKInAppBrowser* instance = nil;
         }
         NSString* previousUserAgent = [CDVUserAgentUtil originalUserAgent];
         id commandDelegate = self.commandDelegate;
-        if ([commandDelegate respondsToSelector:@selector(userAgent)]) {
-            previousUserAgent = [commandDelegate userAgent];
+        SEL userAgentSelector = NSSelectorFromString(@"userAgent");
+        if ([commandDelegate respondsToSelector:userAgentSelector]) {
+            IMP impl = [commandDelegate methodForSelector:userAgentSelector];
+            NSString* (*func)(id, SEL) = (void*)impl;
+            if (func != nil) {
+                previousUserAgent = func(commandDelegate, userAgentSelector);
+            }
         }
         self.inAppBrowserViewController = [[CDVWKInAppBrowserViewController alloc] initWithUserAgent:userAgent prevUserAgent:previousUserAgent browserOptions: browserOptions];
         self.inAppBrowserViewController.navigationDelegate = self;
@@ -1271,7 +1277,7 @@ BOOL isExiting = FALSE;
     return YES;
 }
 
-- (NSUInteger)supportedInterfaceOrientations
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations
 {
     if ((self.orientationDelegate != nil) && [self.orientationDelegate respondsToSelector:@selector(supportedInterfaceOrientations)]) {
         return [self.orientationDelegate supportedInterfaceOrientations];
