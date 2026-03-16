@@ -27,6 +27,20 @@ static NSString* gOriginalUserAgent = nil;
 static NSInteger gNextLockToken = 1;
 static NSInteger gActiveLockToken = 0;
 static dispatch_queue_t gUserAgentQueue;
+static void* kUserAgentQueueSpecific = &kUserAgentQueueSpecific;
+
+static inline void CDVUserAgentQueueSync(dispatch_block_t block)
+{
+    if (block == nil) {
+        return;
+    }
+
+    if (dispatch_get_specific(kUserAgentQueueSpecific) != NULL) {
+        block();
+    } else {
+        dispatch_sync(gUserAgentQueue, block);
+    }
+}
 
 @implementation CDVUserAgentUtil
 
@@ -34,13 +48,14 @@ static dispatch_queue_t gUserAgentQueue;
 {
     if (self == [CDVUserAgentUtil class]) {
         gUserAgentQueue = dispatch_queue_create("cordova.plugin.inappbrowser.useragent", DISPATCH_QUEUE_SERIAL);
+        dispatch_queue_set_specific(gUserAgentQueue, kUserAgentQueueSpecific, kUserAgentQueueSpecific, NULL);
     }
 }
 
 + (NSString*)originalUserAgent
 {
     __block NSString* userAgent = nil;
-    dispatch_sync(gUserAgentQueue, ^{
+    CDVUserAgentQueueSync(^{
         userAgent = gOriginalUserAgent;
     });
     if (userAgent != nil && [userAgent length] > 0) {
@@ -55,7 +70,7 @@ static dispatch_queue_t gUserAgentQueue;
         storedAgent = @"Mozilla/5.0";
     }
 
-    dispatch_sync(gUserAgentQueue, ^{
+    CDVUserAgentQueueSync(^{
         if ([gOriginalUserAgent length] == 0) {
             gOriginalUserAgent = [storedAgent copy];
         }
@@ -97,15 +112,17 @@ static dispatch_queue_t gUserAgentQueue;
     if (block == nil) {
         return;
     }
-    dispatch_sync(gUserAgentQueue, ^{
+    __block NSInteger token = 0;
+    CDVUserAgentQueueSync(^{
         gActiveLockToken = gNextLockToken++;
-        block(gActiveLockToken);
+        token = gActiveLockToken;
     });
+    block(token);
 }
 
 + (void)releaseLock:(NSInteger*)lockToken
 {
-    dispatch_sync(gUserAgentQueue, ^{
+    CDVUserAgentQueueSync(^{
         if ((lockToken != NULL) && (*lockToken == gActiveLockToken)) {
             gActiveLockToken = 0;
             *lockToken = 0;
@@ -119,7 +136,7 @@ static dispatch_queue_t gUserAgentQueue;
         return;
     }
 
-    dispatch_sync(gUserAgentQueue, ^{
+    CDVUserAgentQueueSync(^{
         if (lockToken == gActiveLockToken) {
             [[NSUserDefaults standardUserDefaults] registerDefaults:@{ @"UserAgent": value }];
             [[NSUserDefaults standardUserDefaults] synchronize];
